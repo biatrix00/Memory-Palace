@@ -222,96 +222,116 @@ function createRoom(room: Room): THREE.Group {
   // Room dimensions from the room object
   const { width, height, depth } = size;
 
-  // Floor
+  // Floor with enhanced material
   const floorGeometry = new THREE.PlaneGeometry(width, depth);
-  const floorMaterial = new THREE.MeshLambertMaterial({ 
+  const floorMaterial = new THREE.MeshStandardMaterial({ 
     color: new THREE.Color(color.r * 0.5, color.g * 0.5, color.b * 0.5),
     transparent: true,
-    opacity: 0.8
+    opacity: 0.9,
+    roughness: 0.7,
+    metalness: 0.1
   });
   const floor = new THREE.Mesh(floorGeometry, floorMaterial);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   group.add(floor);
 
-  // Room lighting
+  // Enhanced room lighting
   const roomLight = new THREE.PointLight(
     new THREE.Color(lighting.color),
-    lighting.intensity,
-    width * 2
+    lighting.intensity * 1.5,
+    width * 2.5,
+    2
   );
   roomLight.position.set(0, height * 0.8, 0);
+  roomLight.castShadow = true;
   group.add(roomLight);
 
-  // Walls
-  const wallMaterial = new THREE.MeshLambertMaterial({ 
+  // Add ambient light specific to the room
+  const roomAmbient = new THREE.AmbientLight(
+    new THREE.Color(lighting.color),
+    lighting.intensity * 0.3
+  );
+  group.add(roomAmbient);
+
+  // Walls with enhanced material
+  const wallMaterial = new THREE.MeshStandardMaterial({ 
     color: new THREE.Color(color.r * 0.7, color.g * 0.7, color.b * 0.7),
     transparent: true,
-    opacity: 0.6
+    opacity: 0.7,
+    roughness: 0.5,
+    metalness: 0.2
   });
 
-  // Create walls with doorways
-  const wallGeometry = new THREE.PlaneGeometry(width, height);
-  
+  // Create walls with slight gaps for better visibility
+  const wallThickness = 0.2;
+  const wallHeight = height;
+  const wallOffset = 0.1; // Small gap between walls
+
   // Back wall
-  const backWall = new THREE.Mesh(wallGeometry, wallMaterial.clone());
-  backWall.position.set(0, height / 2, -depth / 2);
+  const backWall = new THREE.Mesh(
+    new THREE.BoxGeometry(width + wallThickness * 2, wallHeight, wallThickness),
+    wallMaterial
+  );
+  backWall.position.set(0, wallHeight / 2, -depth / 2 - wallThickness / 2);
+  backWall.castShadow = true;
+  backWall.receiveShadow = true;
   group.add(backWall);
 
-  // Side walls with doorways
-  const wallWithDoorGeometry = createWallWithDoor(width, height);
-  
-  const leftWall = new THREE.Mesh(wallWithDoorGeometry, wallMaterial.clone());
-  leftWall.position.set(-width / 2, height / 2, 0);
-  leftWall.rotation.y = Math.PI / 2;
+  // Front wall with door
+  const frontWall = new THREE.Mesh(
+    createWallWithDoor(width, wallHeight),
+    wallMaterial
+  );
+  frontWall.position.set(0, wallHeight / 2, depth / 2 + wallThickness / 2);
+  frontWall.castShadow = true;
+  frontWall.receiveShadow = true;
+  group.add(frontWall);
+
+  // Side walls
+  const leftWall = new THREE.Mesh(
+    new THREE.BoxGeometry(wallThickness, wallHeight, depth + wallThickness * 2),
+    wallMaterial
+  );
+  leftWall.position.set(-width / 2 - wallThickness / 2, wallHeight / 2, 0);
+  leftWall.castShadow = true;
+  leftWall.receiveShadow = true;
   group.add(leftWall);
 
-  const rightWall = new THREE.Mesh(wallWithDoorGeometry, wallMaterial.clone());
-  rightWall.position.set(width / 2, height / 2, 0);
-  rightWall.rotation.y = -Math.PI / 2;
+  const rightWall = new THREE.Mesh(
+    new THREE.BoxGeometry(wallThickness, wallHeight, depth + wallThickness * 2),
+    wallMaterial
+  );
+  rightWall.position.set(width / 2 + wallThickness / 2, wallHeight / 2, 0);
+  rightWall.castShadow = true;
+  rightWall.receiveShadow = true;
   group.add(rightWall);
 
-  // Ceiling
-  const ceilingGeometry = new THREE.PlaneGeometry(width, depth);
-  const ceilingMaterial = new THREE.MeshLambertMaterial({
-    color: new THREE.Color(color.r * 0.3, color.g * 0.3, color.b * 0.3),
-    transparent: true,
-    opacity: 0.4
-  });
-  const ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
-  ceiling.position.set(0, height, 0);
-  ceiling.rotation.x = Math.PI / 2;
-  group.add(ceiling);
-
-  // Add room objects
+  // Add objects with enhanced materials and shadows
   objects.forEach(obj => {
     const mesh = createObject(obj);
     if (mesh) {
-      // Scale object positions to room size
-      mesh.position.set(
-        obj.position.x * (width / 15),
-        obj.position.y * (height / 8),
-        obj.position.z * (depth / 15)
-      );
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
       group.add(mesh);
     }
   });
 
-  // Add floating label
+  // Add room label
   const labelDiv = document.createElement('div');
   labelDiv.className = 'room-label';
   labelDiv.textContent = concept.name;
   labelDiv.style.color = '#ffffff';
-  labelDiv.style.fontSize = '16px';
-  labelDiv.style.fontWeight = 'bold';
   labelDiv.style.padding = '4px 8px';
   labelDiv.style.background = 'rgba(0, 0, 0, 0.7)';
   labelDiv.style.borderRadius = '4px';
+  labelDiv.style.fontSize = '14px';
+  labelDiv.style.fontWeight = 'bold';
   labelDiv.style.pointerEvents = 'none';
 
-  const labelObject = new CSS2DObject(labelDiv);
-  labelObject.position.set(0, height + 2, 0);
-  group.add(labelObject);
+  const label = new CSS2DObject(labelDiv);
+  label.position.set(0, height + 1, 0);
+  group.add(label);
 
   return group;
 }
@@ -343,31 +363,37 @@ function createWallWithDoor(width: number, height: number): THREE.BufferGeometry
 }
 
 function createObject(obj: any): THREE.Mesh | null {
+  const { type, position, scale, color } = obj;
   let geometry: THREE.BufferGeometry;
   
-  switch (obj.type) {
+  switch (type) {
     case 'cube':
-      geometry = new THREE.BoxGeometry(obj.scale.x, obj.scale.y, obj.scale.z);
+      geometry = new THREE.BoxGeometry(1, 1, 1);
       break;
     case 'sphere':
-      geometry = new THREE.SphereGeometry(obj.scale.x, 32, 32);
+      geometry = new THREE.SphereGeometry(0.5, 32, 32);
       break;
     case 'cylinder':
-      geometry = new THREE.CylinderGeometry(obj.scale.x, obj.scale.x, obj.scale.y, 32);
+      geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 32);
       break;
     case 'pyramid':
-      geometry = new THREE.ConeGeometry(obj.scale.x, obj.scale.y, 8);
+      geometry = new THREE.ConeGeometry(0.5, 1, 4);
       break;
     default:
       return null;
   }
-  
-  const material = new THREE.MeshLambertMaterial({ color: obj.color });
+
+  const material = new THREE.MeshStandardMaterial({
+    color: color,
+    roughness: 0.4,
+    metalness: 0.2,
+    transparent: true,
+    opacity: 0.9
+  });
+
   const mesh = new THREE.Mesh(geometry, material);
-  
-  mesh.position.set(obj.position.x, obj.position.y, obj.position.z);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
+  mesh.position.set(position.x, position.y, position.z);
+  mesh.scale.set(scale.x, scale.y, scale.z);
   
   return mesh;
 }
@@ -375,10 +401,12 @@ function createObject(obj: any): THREE.Mesh | null {
 function createPathways(rooms: Room[], pathwaysGroup: THREE.Group): void {
   if (rooms.length <= 1) return;
 
-  const material = new THREE.MeshLambertMaterial({
+  const material = new THREE.MeshStandardMaterial({
     color: 0x666666,
     transparent: true,
-    opacity: 0.3
+    opacity: 0.3,
+    roughness: 0.8,
+    metalness: 0.1
   });
 
   // Create pathways between adjacent rooms
@@ -388,24 +416,28 @@ function createPathways(rooms: Room[], pathwaysGroup: THREE.Group): void {
       const room2 = rooms[j];
 
       // Calculate distance between rooms
-      const dx = room2.concept.position.x - room1.concept.position.x;
-      const dz = room2.concept.position.z - room1.concept.position.z;
-      const distance = Math.sqrt(dx * dx + dz * dz);
+      const distance = Math.sqrt(
+        Math.pow(room2.concept.position.x - room1.concept.position.x, 2) +
+        Math.pow(room2.concept.position.z - room1.concept.position.z, 2)
+      );
 
       // Only create pathways between nearby rooms
       if (distance < 50) {
-        const pathGeometry = new THREE.PlaneGeometry(distance, 2);
+        const pathGeometry = new THREE.BoxGeometry(2, 0.1, distance);
         const path = new THREE.Mesh(pathGeometry, material);
-        
+
         // Position and rotate the path
-        path.position.set(
-          (room1.concept.position.x + room2.concept.position.x) / 2,
-          0.1,
-          (room1.concept.position.z + room2.concept.position.z) / 2
+        const midX = (room1.concept.position.x + room2.concept.position.x) / 2;
+        const midZ = (room1.concept.position.z + room2.concept.position.z) / 2;
+        path.position.set(midX, 0.05, midZ);
+
+        const angle = Math.atan2(
+          room2.concept.position.z - room1.concept.position.z,
+          room2.concept.position.x - room1.concept.position.x
         );
-        path.rotation.x = -Math.PI / 2;
-        path.rotation.z = Math.atan2(dz, dx);
-        
+        path.rotation.y = angle;
+
+        path.receiveShadow = true;
         pathwaysGroup.add(path);
       }
     }

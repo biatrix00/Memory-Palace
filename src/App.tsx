@@ -1,95 +1,109 @@
 import React, { useState, useCallback } from 'react';
-import ThreeScene from './components/ThreeScene';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import TextInput from './components/TextInput';
+import Room from './components/Room';
 import MiniMap from './components/MiniMap';
 import ConceptDisplay from './components/ConceptDisplay';
-import { analyzeTextWithAI } from './services/openaiService';
+import ErrorBoundary from './components/ErrorBoundary';
+import { analyzeTextWithGemini, Concept } from './services/geminiService';
 import { generateRoom } from './utils/roomGenerator';
-import { Room } from './types';
+import './App.css';
 
-function App() {
+export default function App() {
   const [text, setText] = useState('');
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [playerPosition, setPlayerPosition] = useState({ x: 0, z: 0 });
-  const [teleportToRoom, setTeleportToRoom] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [rooms, setRooms] = useState<Array<{
+    position: [number, number, number];
+    size: [number, number, number];
+    color: string;
+    objects: Array<{
+      position: [number, number, number];
+      size: [number, number, number];
+      color: string;
+    }>;
+    lighting: {
+      intensity: number;
+      color: string;
+    };
+  }>>([]);
+  const [activeRoomIndex, setActiveRoomIndex] = useState<number | null>(null);
+  const [concepts, setConcepts] = useState<Concept[]>([]);
 
-  const hasApiKey = !!import.meta.env.VITE_OPENAI_API_KEY;
+  const hasApiKey = !!import.meta.env.VITE_GEMINI_API_KEY;
 
   const handleAnalyze = useCallback(async () => {
-    if (!text.trim() || isAnalyzing) return;
+    if (!text.trim()) return;
 
     setIsAnalyzing(true);
+    setError(null);
+
     try {
-      const analysis = await analyzeTextWithAI(text);
-      const newRooms = analysis.concepts.map(concept => generateRoom(concept));
+      const analyzedConcepts = await analyzeTextWithGemini(text);
+      setConcepts(analyzedConcepts);
+
+      const newRooms = analyzedConcepts.map(concept => generateRoom(concept));
       setRooms(newRooms);
-      
-      // Teleport to first room if available
-      if (newRooms.length > 0) {
-        setTeleportToRoom(newRooms[0].id);
-        setTimeout(() => setTeleportToRoom(null), 100);
-      }
-    } catch (error) {
-      console.error('Analysis failed:', error);
+      setActiveRoomIndex(0);
+    } catch (err) {
+      console.error('Error analyzing text:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred while analyzing the text');
     } finally {
       setIsAnalyzing(false);
     }
-  }, [text, isAnalyzing]);
-
-  const handleRoomClick = useCallback((roomId: string) => {
-    setTeleportToRoom(roomId);
-    setTimeout(() => setTeleportToRoom(null), 100);
-  }, []);
-
-  const currentRoom = rooms.find(room => room.id === currentRoomId) || null;
+  }, [text]);
 
   return (
-    <div className="w-full h-screen overflow-hidden bg-gray-900 relative">
-      <ThreeScene 
-        rooms={rooms}
-        onRoomChange={setCurrentRoomId}
-        onPlayerPositionChange={setPlayerPosition}
-        teleportToRoom={teleportToRoom}
-      />
-      
-      <TextInput 
-        text={text} 
-        onTextChange={setText}
-        onAnalyze={handleAnalyze}
-        isAnalyzing={isAnalyzing}
-        roomCount={rooms.length}
-        hasApiKey={hasApiKey}
-      />
+    <div className="app">
+      <ErrorBoundary>
+        <div className="canvas-container">
+          <Canvas camera={{ position: [0, 5, 10], fov: 75 }}>
+            <ambientLight intensity={0.5} />
+            <OrbitControls />
+            {rooms.map((room, index) => (
+              <Room
+                key={index}
+                position={room.position}
+                size={room.size}
+                color={room.color}
+                objects={room.objects}
+                lighting={room.lighting}
+                isActive={index === activeRoomIndex}
+              />
+            ))}
+          </Canvas>
+        </div>
 
-      <MiniMap
-        rooms={rooms}
-        currentRoomId={currentRoomId}
-        playerPosition={playerPosition}
-        onRoomClick={handleRoomClick}
-      />
+        <div className="ui-container">
+          <TextInput
+            text={text}
+            onTextChange={setText}
+            onAnalyze={handleAnalyze}
+            isAnalyzing={isAnalyzing}
+            roomCount={rooms.length}
+            hasApiKey={hasApiKey}
+          />
 
-      <ConceptDisplay
-        currentRoom={currentRoom}
-        analysisLoading={isAnalyzing}
-      />
-      
-      {/* Instructions overlay */}
-      <div className="absolute bottom-6 right-6 bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-4 text-white/80 text-sm max-w-xs">
-        <h3 className="font-semibold mb-2">Navigation Controls</h3>
-        <div className="space-y-1 text-xs">
-          <div><kbd className="bg-white/10 px-1 rounded">W</kbd> Move forward</div>
-          <div><kbd className="bg-white/10 px-1 rounded">S</kbd> Move backward</div>
-          <div><kbd className="bg-white/10 px-1 rounded">A</kbd> Move left</div>
-          <div><kbd className="bg-white/10 px-1 rounded">D</kbd> Move right</div>
-          <div className="pt-1 border-t border-white/20">
-            <div>Click rooms on map to teleport</div>
+          {error && (
+            <div className="error-message">
+              {error}
+            </div>
+          )}
+
+          <div className="bottom-ui">
+            <MiniMap
+              rooms={rooms}
+              activeRoomIndex={activeRoomIndex}
+              onRoomSelect={setActiveRoomIndex}
+            />
+            <ConceptDisplay
+              concepts={concepts}
+              activeRoomIndex={activeRoomIndex}
+            />
           </div>
         </div>
-      </div>
+      </ErrorBoundary>
     </div>
   );
 }
-
-export default App;

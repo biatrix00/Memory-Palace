@@ -1,103 +1,129 @@
-import { Room, Concept, RoomObject } from '../types';
+import { Concept } from '../types';
+
+interface Room {
+  position: [number, number, number];
+  size: [number, number, number];
+  color: string;
+  objects: Array<{
+    position: [number, number, number];
+    size: [number, number, number];
+    color: string;
+  }>;
+  lighting: {
+    intensity: number;
+    color: string;
+  };
+}
 
 export function generateRoom(concept: Concept): Room {
-  const color = getMoodColor(concept.mood, concept.intensity);
+  const color = getMoodColor(concept.mood);
+  const size = calculateRoomSize(concept);
+  const lighting = getLighting(concept);
   const objects = generateRoomObjects(concept);
-  const size = getRoomSize(concept.mood, concept.intensity);
-  const lighting = getRoomLighting(concept.mood, concept.intensity);
 
   return {
-    id: concept.id,
-    concept,
+    position: [0, 0, 0],
+    size: [size.width, size.height, size.depth],
     color,
     objects,
-    size,
     lighting
   };
 }
 
-function getRoomSize(mood: 'positive' | 'negative' | 'neutral', intensity: number): { width: number; height: number; depth: number } {
-  const baseSize = 10;
-  const sizeMultiplier = {
-    positive: 1.5,
-    negative: 0.7,
-    neutral: 1.0
-  }[mood];
-
-  const adjustedSize = baseSize * sizeMultiplier * (0.8 + intensity * 0.4);
+function calculateRoomSize(concept: Concept) {
+  // Base size
+  const baseSize = 2;
+  
+  // Adjust size based on concept intensity and number of keywords
+  const intensityMultiplier = 1 + concept.intensity;
+  const keywordMultiplier = 1 + (concept.keywords.length * 0.1);
+  
+  const size = baseSize * intensityMultiplier * keywordMultiplier;
   
   return {
-    width: adjustedSize,
-    height: adjustedSize * 0.8,
-    depth: adjustedSize
+    width: size,
+    height: size * 1.5, // Taller rooms for better visibility
+    depth: size
   };
 }
 
-function getRoomLighting(mood: 'positive' | 'negative' | 'neutral', intensity: number): { intensity: number; color: string } {
-  const baseIntensity = {
-    positive: 1.0,
-    negative: 0.3,
-    neutral: 0.7
-  }[mood];
-
-  const colors = {
-    positive: '#ffffcc',
-    negative: '#ffcccc',
-    neutral: '#ccccff'
-  }[mood];
-
-  return {
-    intensity: baseIntensity * (0.7 + intensity * 0.6),
-    color: colors
-  };
-}
-
-function getMoodColor(mood: 'positive' | 'negative' | 'neutral', intensity: number): { r: number; g: number; b: number } {
-  const baseIntensity = Math.max(intensity, 0.3);
-  
+function getMoodColor(mood: 'positive' | 'negative' | 'neutral'): string {
   switch (mood) {
     case 'positive':
-      return { 
-        r: 0.1 + baseIntensity * 0.2, 
-        g: 0.4 + baseIntensity * 0.5, 
-        b: 0.1 + baseIntensity * 0.3 
-      };
+      return '#4ade80'; // Green
     case 'negative':
-      return { 
-        r: 0.4 + baseIntensity * 0.5, 
-        g: 0.1 + baseIntensity * 0.2, 
-        b: 0.1 + baseIntensity * 0.2 
-      };
-    case 'neutral':
+      return '#f87171'; // Red
     default:
-      return { 
-        r: 0.2 + baseIntensity * 0.3, 
-        g: 0.3 + baseIntensity * 0.3, 
-        b: 0.4 + baseIntensity * 0.4 
-      };
+      return '#94a3b8'; // Gray
   }
 }
 
-function generateRoomObjects(concept: Concept): RoomObject[] {
-  const objects: RoomObject[] = [];
-  const objectCount = Math.min(Math.max(2, Math.floor(concept.intensity * 5)), 6);
+function getLighting(concept: Concept) {
+  const baseIntensity = 0.5;
+  const moodIntensity = {
+    positive: 1.2,
+    negative: 0.8,
+    neutral: 1.0
+  }[concept.mood];
+
+  return {
+    intensity: baseIntensity * moodIntensity * (1 + concept.intensity * 0.5),
+    color: getMoodLightColor(concept.mood)
+  };
+}
+
+function getMoodLightColor(mood: 'positive' | 'negative' | 'neutral'): string {
+  switch (mood) {
+    case 'positive':
+      return '#90EE90'; // Light green
+    case 'negative':
+      return '#FFB6C1'; // Light red
+    default:
+      return '#FFFFFF'; // White
+  }
+}
+
+function generateRoomObjects(concept: Concept): Array<{
+  position: [number, number, number];
+  size: [number, number, number];
+  color: string;
+}> {
+  const objects: Array<{
+    position: [number, number, number];
+    size: [number, number, number];
+    color: string;
+  }> = [];
   
-  for (let i = 0; i < objectCount; i++) {
-    const angle = (i / objectCount) * Math.PI * 2;
-    const radius = 3 + Math.random() * 4;
+  // Determine object count based on concept properties
+  const objectCount = Math.floor(
+    2 + // Base objects
+    concept.intensity * 3 + // More objects for higher intensity
+    concept.keywords.length * 0.5 // Additional objects based on keywords
+  );
+
+  // Create a central focal point object
+  objects.push({
+    position: [0, 1.5, 0],
+    size: [1, 1, 1],
+    color: getObjectColor(concept.mood, concept.intensity)
+  });
+
+  // Create surrounding objects in a structured pattern
+  const radius = 6;
+  for (let i = 0; i < objectCount - 1; i++) {
+    const angle = (i / (objectCount - 1)) * Math.PI * 2;
+    
+    // Calculate position with variation
+    const x = Math.cos(angle) * radius * (0.9 + Math.random() * 0.2);
+    const z = Math.sin(angle) * radius * (0.9 + Math.random() * 0.2);
+    
+    // Height varies based on mood and intensity
+    const heightMultiplier = concept.mood === 'positive' ? 1.2 : concept.mood === 'negative' ? 0.8 : 1.0;
+    const y = 0.5 + Math.random() * 1.5 * heightMultiplier * (1 + concept.intensity * 0.5);
     
     objects.push({
-      type: getRandomObjectType(),
-      position: {
-        x: Math.cos(angle) * radius,
-        y: 0.5 + Math.random() * 2,
-        z: Math.sin(angle) * radius
-      },
-      scale: {
-        x: 0.5 + Math.random() * 1.5,
-        y: 0.5 + Math.random() * 1.5,
-        z: 0.5 + Math.random() * 1.5
-      },
+      position: [x, y, z],
+      size: [0.5, 0.5, 0.5],
       color: getObjectColor(concept.mood, concept.intensity)
     });
   }
@@ -105,16 +131,29 @@ function generateRoomObjects(concept: Concept): RoomObject[] {
   return objects;
 }
 
-function getRandomObjectType(): 'cube' | 'sphere' | 'cylinder' | 'pyramid' {
-  const types: ('cube' | 'sphere' | 'cylinder' | 'pyramid')[] = ['cube', 'sphere', 'cylinder', 'pyramid'];
-  return types[Math.floor(Math.random() * types.length)];
-}
-
-function getObjectColor(mood: 'positive' | 'negative' | 'neutral', intensity: number): number {
+function getObjectColor(mood: 'positive' | 'negative' | 'neutral', intensity: number): string {
   const colors = {
-    positive: [0x4ade80, 0x22c55e, 0x16a34a, 0x15803d],
-    negative: [0xef4444, 0xdc2626, 0xb91c1c, 0x991b1b],
-    neutral: [0x3b82f6, 0x2563eb, 0x1d4ed8, 0x1e40af]
+    positive: [
+      '#4ade80', // Green
+      '#22c55e', // Darker green
+      '#16a34a', // Even darker green
+      '#15803d', // Very dark green
+      '#86efac'  // Light green
+    ],
+    negative: [
+      '#f87171', // Red
+      '#ef4444', // Darker red
+      '#dc2626', // Even darker red
+      '#b91c1c', // Very dark red
+      '#fca5a5'  // Light red
+    ],
+    neutral: [
+      '#60a5fa', // Blue
+      '#3b82f6', // Darker blue
+      '#2563eb', // Even darker blue
+      '#1d4ed8', // Very dark blue
+      '#93c5fd'  // Light blue
+    ]
   };
   
   const moodColors = colors[mood];

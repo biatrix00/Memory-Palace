@@ -1,15 +1,13 @@
 import React from 'react';
 import { Room } from '../types';
-import { Map, MapPin } from 'lucide-react';
 
 interface MiniMapProps {
   rooms: Room[];
-  currentRoomId: string | null;
-  playerPosition: { x: number; z: number };
-  onRoomClick: (roomId: string) => void;
+  currentRoomIndex: number;
+  onRoomClick: (index: number) => void;
 }
 
-export default function MiniMap({ rooms, currentRoomId, playerPosition, onRoomClick }: MiniMapProps) {
+export default function MiniMap({ rooms, currentRoomIndex, onRoomClick }: MiniMapProps) {
   if (rooms.length === 0) return null;
 
   const mapSize = 200;
@@ -19,7 +17,7 @@ export default function MiniMap({ rooms, currentRoomId, playerPosition, onRoomCl
     <div className="absolute top-6 right-6 w-64 z-10">
       <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-2xl">
         <div className="flex items-center gap-2 mb-3">
-          <Map className="w-4 h-4 text-white/80" />
+          <span className="text-white/80">🗺️</span>
           <h3 className="text-sm font-semibold text-white">Room Map</h3>
         </div>
         
@@ -34,15 +32,15 @@ export default function MiniMap({ rooms, currentRoomId, playerPosition, onRoomCl
           />
           
           {/* Rooms */}
-          {rooms.map((room) => {
-            const x = (room.concept.position.x * scale) + mapSize / 2;
-            const z = (room.concept.position.z * scale) + mapSize / 2;
-            const isActive = room.id === currentRoomId;
+          {rooms.map((room, index) => {
+            const x = (room.position.x * scale) + mapSize / 2;
+            const z = (room.position.z * scale) + mapSize / 2;
+            const isActive = index === currentRoomIndex;
             
             return (
               <button
-                key={room.id}
-                onClick={() => onRoomClick(room.id)}
+                key={index}
+                onClick={() => onRoomClick(index)}
                 className={`absolute w-4 h-4 rounded-full border-2 transition-all duration-200 hover:scale-110 ${
                   isActive 
                     ? 'border-white bg-white/30 shadow-lg' 
@@ -55,29 +53,20 @@ export default function MiniMap({ rooms, currentRoomId, playerPosition, onRoomCl
                     ? `rgb(${room.color.r * 255}, ${room.color.g * 255}, ${room.color.b * 255})` 
                     : undefined
                 }}
-                title={room.concept.name}
+                title={`Room ${index + 1}`}
               />
             );
           })}
-          
-          {/* Player position */}
-          <div
-            className="absolute w-2 h-2 bg-yellow-400 rounded-full shadow-lg"
-            style={{
-              left: Math.max(0, Math.min(mapSize - 8, (playerPosition.x * scale) + mapSize / 2 - 4)),
-              top: Math.max(0, Math.min(mapSize - 8, (playerPosition.z * scale) + mapSize / 2 - 4))
-            }}
-          />
         </div>
         
         {/* Room list */}
         <div className="mt-3 space-y-1 max-h-32 overflow-y-auto">
-          {rooms.map((room) => (
+          {rooms.map((room, index) => (
             <button
-              key={room.id}
-              onClick={() => onRoomClick(room.id)}
+              key={index}
+              onClick={() => onRoomClick(index)}
               className={`w-full text-left px-2 py-1 rounded text-xs transition-colors ${
-                room.id === currentRoomId
+                index === currentRoomIndex
                   ? 'bg-white/20 text-white'
                   : 'text-white/70 hover:bg-white/10 hover:text-white'
               }`}
@@ -89,7 +78,7 @@ export default function MiniMap({ rooms, currentRoomId, playerPosition, onRoomCl
                     backgroundColor: `rgb(${room.color.r * 255}, ${room.color.g * 255}, ${room.color.b * 255})`
                   }}
                 />
-                <span className="truncate">{room.concept.name}</span>
+                <span className="truncate">Room {index + 1}</span>
               </div>
             </button>
           ))}

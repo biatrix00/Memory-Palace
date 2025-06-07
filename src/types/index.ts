@@ -1,11 +1,17 @@
+export type Mood = 'positive' | 'negative' | 'neutral';
+
 export interface Concept {
   id: string;
   name: string;
   description: string;
-  mood: 'positive' | 'negative' | 'neutral';
+  mood: Mood;
   intensity: number;
   keywords: string[];
-  position: { x: number; y: number; z: number };
+  position: {
+    x: number;
+    y: number;
+    z: number;
+  };
 }
 
 export interface RoomObject {
@@ -15,17 +21,38 @@ export interface RoomObject {
   color: number;
 }
 
-export interface Room {
-  id: string;
-  concept: Concept;
-  color: { r: number; g: number; b: number };
-  objects: RoomObject[];
-  size: { width: number; height: number; depth: number };
-  lighting: { intensity: number; color: string };
+export interface Room extends Concept {
+  color: {
+    r: number;
+    g: number;
+    b: number;
+  };
+  size: {
+    width: number;
+    height: number;
+    depth: number;
+  };
+  lighting: {
+    intensity: number;
+    color: string;
+  };
+  objects: Array<{
+    type: string;
+    position: {
+      x: number;
+      y: number;
+      z: number;
+    };
+    color: {
+      r: number;
+      g: number;
+      b: number;
+    };
+  }>;
 }
 
 export interface AnalysisResult {
   concepts: Concept[];
-  overallMood: 'positive' | 'negative' | 'neutral';
+  overallMood: Mood;
   summary: string;
 }
